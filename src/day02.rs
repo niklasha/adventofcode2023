@@ -26,8 +26,8 @@ lazy_static! {
 
 impl Day02 {
     fn process<F, R>(input: &mut dyn io::Read, handle_game: F) -> BoxResult<Vec<(Output, R)>>
-        where
-            F: Fn(&str, Output) -> BoxResult<(Output, R)>,
+    where
+        F: Fn(&str, Output) -> BoxResult<(Output, R)>,
     {
         io::BufReader::new(input)
             .lines()
@@ -41,56 +41,48 @@ impl Day02 {
             .collect::<BoxResult<Vec<_>>>()
     }
 
-    fn handle_game_1(bag: &str, game: Output) -> BoxResult<(Output, bool)> {
-        Ok((
-            game,
-            bag.split("; ")
-                .map(|revelation| {
-                    Ok(revelation
-                        .split(", ")
-                        .map(|cubes| {
-                            let (_, [count, color]) = CUBES_BY_COLOR_PATTERN
-                                .captures(cubes)
-                                .ok_or(AocError)?
-                                .extract();
-                            let count = count.parse::<Output>()?;
-                            match color {
-                                "red" => Ok(count <= 12),
-                                "green" => Ok(count <= 13),
-                                "blue" => Ok(count <= 14),
-                                _ => Err(AocError.into()),
-                            }
-                        })
-                        .collect::<BoxResult<Vec<_>>>()?
-                        .into_iter()
-                        .all(|b| b))
-                })
-                .collect::<BoxResult<Vec<_>>>()?
-                .into_iter()
-                .all(|b| b),
-        ))
+    fn process_bag<F, A>(bag: &str, initial: A, mut process_cubes: F) -> BoxResult<A>
+    where
+        F: FnMut(A, &str, Output) -> BoxResult<A>,
+    {
+        bag.split("; ").try_fold(initial, |acc, revelation| {
+            revelation.split(", ").try_fold(acc, |acc, cube| {
+                let (_, [count, color]) = CUBES_BY_COLOR_PATTERN
+                    .captures(cube)
+                    .ok_or(AocError)?
+                    .extract();
+                let count = count.parse::<Output>()?;
+                process_cubes(acc, color, count)
+            })
+        })
     }
 
-    fn handle_game_2(bag: &str, game: Output) -> BoxResult<(Output, usize)> {
-        let min = bag.split("; ").try_fold(
+    fn handle_game_1(bag: &str, game: Output) -> BoxResult<(Output, bool)> {
+        let results = Self::process_bag(bag, Vec::new(), |mut acc, color, count| {
+            let condition = match color {
+                "red" => count <= 12,
+                "green" => count <= 13,
+                "blue" => count <= 14,
+                _ => return BoxResult::Err(AocError.into()),
+            };
+            acc.push(condition);
+            BoxResult::Ok(acc)
+        })?;
+        Ok((game, results.into_iter().all(|b| b)))
+    }
+
+    fn handle_game_2(bag: &str, game: Output) -> BoxResult<(Output, Output)> {
+        let (max_red, max_green, max_blue) = Self::process_bag(
+            bag,
             (Output::MIN, Output::MIN, Output::MIN),
-            |min, revelation| {
-                revelation.split(", ").try_fold(min, |min, cubes| {
-                    let (_, [count, color]) = CUBES_BY_COLOR_PATTERN
-                        .captures(cubes)
-                        .ok_or(AocError)?
-                        .extract();
-                    let count = count.parse::<Output>()?;
-                    match color {
-                        "red" => BoxResult::Ok((Output::max(min.0, count), min.1, min.2)),
-                        "green" => BoxResult::Ok((min.0, Output::max(min.1, count), min.2)),
-                        "blue" => BoxResult::Ok((min.0, min.1, Output::max(min.2, count))),
-                        _ => Err(AocError.into()),
-                    }
-                })
+            |(max_red, max_green, max_blue), color, count| match color {
+                "red" => BoxResult::Ok((Output::max(max_red, count), max_green, max_blue)),
+                "green" => BoxResult::Ok((max_red, Output::max(max_green, count), max_blue)),
+                "blue" => BoxResult::Ok((max_red, max_green, Output::max(max_blue, count))),
+                _ => Err(AocError.into()),
             },
         )?;
-        Ok((game, min.0 * min.1 * min.2))
+        Ok((game, max_red * max_green * max_blue))
     }
 
     fn part1_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
