@@ -10,7 +10,7 @@ extern crate lazy_static;
 mod day;
 mod day01;
 mod day02;
-// mod day03;
+mod day03;
 // mod day04;
 // mod day05;
 // mod day06;
@@ -44,7 +44,7 @@ fn main() {
     let days: Vec<Box<dyn Day>> = vec![
         Box::new(day01::Day01 {}),
         Box::new(day02::Day02 {}),
-        // Box::new(day03::Day03 {}),
+        Box::new(day03::Day03 {}),
         // Box::new(day04::Day04 {}),
         // Box::new(day05::Day05 {}),
         // Box::new(day06::Day06 {}),
