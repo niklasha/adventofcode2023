@@ -21,122 +21,145 @@ impl Day for Day03 {
 
 #[derive(Clone, Debug)]
 struct Part {
-    x: usize,
-    y: usize,
-    n: String,
-    c: u8,
-    cnt: usize,
-    prod: Output,
+    part_nos: Vec<Output>,
+    kind: u8,
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+struct PartNo {
+    coord: Coord,
+    part_no: String,
+    kind: Option<u8>,
+}
+
+impl PartNo {
+    fn new(x: usize, y: usize, c: u8) -> Self {
+        Self {
+            coord: Coord { x, y },
+            part_no: format!("{}", c as char),
+            kind: None,
+        }
+    }
+    fn extend(&mut self, c: u8) {
+        self.part_no.push(c as char);
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct Coord {
     x: usize,
     y: usize,
 }
 
+impl Coord {
+    fn left_of_x(&self) -> usize {
+        if self.x == 0 {
+            0
+        } else {
+            self.x - 1
+        }
+    }
+    fn above_y(&self) -> usize {
+        if self.y == 0 {
+            0
+        } else {
+            self.y - 1
+        }
+    }
+}
+
+const VOID: u8 = b'.';
+const GEAR: u8 = b'*';
+
 impl Day03 {
-    fn process<F, G>(
+    fn process<R, F, G>(
         input: &mut dyn io::Read,
         update_part: F,
         collect_results: G,
-    ) -> BoxResult<Vec<Part>>
+    ) -> BoxResult<Vec<R>>
     where
-        F: Fn(&mut Part, &mut Part) -> BoxResult<()>,
-        G: Fn(Vec<Part>, &HashMap<Coord, Part>) -> Vec<Part>,
+        F: Fn(&mut Part, &mut PartNo),
+        G: Fn(Vec<PartNo>, &HashMap<Coord, Part>) -> Vec<R>,
     {
         let mut unidentified_parts = HashMap::new();
-        let mut numbers = Vec::new();
+        let mut part_nos = Vec::new();
         io::BufReader::new(input)
             .lines()
             .enumerate()
             .map(|(y, rs)| {
-                let _ = rs.map_err(|e| e.into()).and_then(|s| {
-                    let mut p: Option<Part> = None;
+                let _: BoxResult<()> = rs.map_err(|e| e.into()).map(|s| {
+                    let mut current_part_no: Option<PartNo> = None;
                     for x in 0..s.len() {
                         let c = s.as_bytes()[x];
                         if c.is_ascii_digit() {
-                            if let Some(ref mut p) = &mut p {
-                                p.n.push(c as char);
+                            if let Some(ref mut current_part_no) = &mut current_part_no {
+                                current_part_no.extend(c);
                             } else {
-                                p = Some(Part {
-                                    x,
-                                    y,
-                                    n: format!("{}", c as char),
-                                    c: b'.',
-                                    cnt: 0,
-                                    prod: 1,
-                                })
+                                current_part_no = Some(PartNo::new(x, y, c));
                             }
-                        } else if let Some(inner_p) = p {
-                            numbers.push(inner_p);
-                            p = None;
+                        } else if let Some(part_no) = current_part_no {
+                            part_nos.push(part_no);
+                            current_part_no = None;
                         }
-                        if c != b'.' && !c.is_ascii_digit() {
+                        if c != VOID && !c.is_ascii_digit() {
+                            let coord = Coord { x, y };
                             unidentified_parts.insert(
-                                Coord { x, y },
+                                coord.to_owned(),
                                 Part {
-                                    x,
-                                    y,
-                                    n: String::new(),
-                                    c,
-                                    cnt: 0,
-                                    prod: 1,
+                                    part_nos: vec![],
+                                    kind: c,
                                 },
                             );
                         }
                     }
-                    if let Some(inner_p) = p {
-                        numbers.push(inner_p);
+                    if let Some(current_part_no) = current_part_no {
+                        part_nos.push(current_part_no);
                     }
-                    BoxResult::Ok(())
                 });
                 Ok(())
             })
             .collect::<BoxResult<Vec<_>>>()?;
-        for n in &mut numbers {
-            for y in if n.y == 0 { 0 } else { n.y - 1 }..=(n.y + 1) {
-                for x in if n.x == 0 { 0 } else { n.x - 1 }..=(n.x + n.n.len()) {
+        for n in &mut part_nos {
+            for y in n.coord.above_y()..=(n.coord.y + 1) {
+                for x in n.coord.left_of_x()..=(n.coord.x + n.part_no.len()) {
                     let p = unidentified_parts.get_mut(&Coord { x, y });
                     if let Some(p) = p {
-                        p.n = n.n.to_owned();
-                        update_part(p, n)?;
+                        p.part_nos.push(n.part_no.parse()?);
+                        update_part(p, n);
                     }
                 }
             }
         }
-        Ok(collect_results(numbers, &unidentified_parts))
+        Ok(collect_results(part_nos, &unidentified_parts))
     }
 
     fn part1_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
         let r = Self::process(
             input,
-            |p, n| {
-                n.c = p.c;
-                Ok(())
-            },
-            |numbers, _| numbers.into_iter().filter(|p| p.c != b'.').collect(),
+            |p, n| n.kind = Some(p.kind),
+            |part_nos, _| part_nos.into_iter().filter(|p| p.kind.is_some()).collect(),
         );
-        Ok(r?.into_iter().map(|p| p.n.parse::<Output>().unwrap()).sum())
+        Ok(r?
+            .into_iter()
+            .map(|p| p.part_no.parse::<Output>().unwrap())
+            .sum())
     }
 
     fn part2_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
         let r = Self::process(
             input,
-            |p, n| {
-                p.cnt += 1;
-                p.prod *= n.n.parse::<Output>()?;
-                Ok(())
-            },
+            |_, _| {},
             |_, unidentified_parts| {
                 unidentified_parts
                     .values()
-                    .filter(|p| p.c == b'*' && p.cnt == 2)
+                    .filter(|p| p.kind == GEAR && p.part_nos.len() == 2)
                     .cloned()
                     .collect()
             },
         );
-        Ok(r?.into_iter().map(|p| p.prod).sum())
+        Ok(r?
+            .into_iter()
+            .map(|p| p.part_nos.iter().product::<Output>())
+            .sum())
     }
 }
 
