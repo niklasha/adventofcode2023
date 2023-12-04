@@ -138,10 +138,8 @@ impl Day03 {
             |p, n| n.kind = Some(p.kind),
             |part_nos, _| part_nos.into_iter().filter(|p| p.kind.is_some()).collect(),
         );
-        Ok(r?
-            .into_iter()
-            .map(|p| p.part_no.parse::<Output>().unwrap())
-            .sum())
+        r?.into_iter()
+            .try_fold(0, |acc, p| Ok(acc + p.part_no.parse::<Output>()?))
     }
 
     fn part2_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
