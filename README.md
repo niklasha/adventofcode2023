@@ -27,6 +27,7 @@ After that, I may still revise the code to be more idiomatic or just nicer.
 My results were:
       --------Part 1--------   --------Part 2--------
 Day       Time   Rank  Score       Time   Rank  Score
+  5   01:37:16  11446      0   04:03:41   8577      0
   4   00:17:15   6531      0   01:44:06  13299      0
   3   01:17:33   8649      0   01:47:05   8019      0
   2   01:35:08  14691      0   02:05:23  15580      0
