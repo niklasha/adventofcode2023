@@ -25,7 +25,7 @@ impl Day06 {
     {
         io::BufReader::new(input)
             .lines()
-            .map(|rs| rs.map_err(|e| e.into()).and_then(|s| handle(s)))
+            .map(|rs| rs.map_err(|e| e.into()).and_then(&handle))
             .collect::<BoxResult<Vec<_>>>()
     }
 
