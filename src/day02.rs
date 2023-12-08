@@ -23,7 +23,6 @@ lazy_static! {
     static ref GAME_PATTERN: Regex = Regex::new("^Game (.+): (.*)$").unwrap();
     static ref CUBES_BY_COLOR_PATTERN: Regex = Regex::new("^(.+) (.*)$").unwrap();
 }
-
 impl Day02 {
     fn process<F, R>(input: &mut dyn io::Read, handle_game: F) -> BoxResult<Vec<(Output, R)>>
     where
