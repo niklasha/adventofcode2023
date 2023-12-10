@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry::Vacant;
 use crate::day::*;
+use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
 
 pub struct Day10 {}
@@ -59,21 +59,25 @@ impl Dir {
 
 impl Coord {
     // Compute the next coordinate in a direction.
-    fn walk(self, dir: Dir) -> Self {
-        Coord(
-            (self.0 as i64
-                + match dir {
-                    Dir::East => 1,
-                    Dir::West => -1,
-                    _ => 0,
-                }) as usize,
-            (self.1 as i64
-                + match dir {
-                    Dir::South => 1,
-                    Dir::North => -1,
-                    _ => 0,
-                }) as usize,
-        )
+    fn walk(self, dir: Dir) -> Option<Self> {
+        if self.0 == 0 && dir == Dir::West || self.1 == 0 && dir == Dir::North {
+            None
+        } else {
+            Some(Coord(
+                (self.0 as i64
+                    + match dir {
+                        Dir::East => 1,
+                        Dir::West => -1,
+                        _ => 0,
+                    }) as usize,
+                (self.1 as i64
+                    + match dir {
+                        Dir::South => 1,
+                        Dir::North => -1,
+                        _ => 0,
+                    }) as usize,
+            ))
+        }
     }
 }
 
@@ -105,22 +109,26 @@ impl Day10 {
         [Dir::East, Dir::South, Dir::West, Dir::North]
             .into_iter()
             .find(|&dir| {
-                let &b = map.get(&c.walk(dir)).unwrap(); // XXX
+                let &b = map.get(&c.walk(dir).unwrap()).unwrap(); // XXX
                 dir.valid(b)
             })
             .ok_or(AocError.into())
     }
 
     // Infer a loop part given its neighbours.
-    fn infer(mut map: &mut HashMap<Coord, u8>, start: &Coord) -> BoxResult<()> {
+    fn infer(map: &mut HashMap<Coord, u8>, start: &Coord) -> BoxResult<()> {
         let v = [Dir::East, Dir::South, Dir::West, Dir::North]
             .into_iter()
             .map(|dir| {
-                let &b = map.get(&start.walk(dir)).unwrap(); // XXX
-                dir.valid(b)
+                if let Some(neighbour) = start.walk(dir) {
+                    let &b = map.get(&neighbour).unwrap(); // XXX
+                    dir.valid(b)
+                } else {
+                    false
+                }
             })
             .collect::<Vec<bool>>();
-        *map.get_mut(&start).ok_or(AocError)? = match v[..] {
+        *map.get_mut(start).ok_or(AocError)? = match v[..] {
             [true, true, false, false] => Ok(b'F'),
             [true, false, true, false] => Ok(b'-'),
             [true, false, false, true] => Ok(b'L'),
@@ -138,7 +146,7 @@ impl Day10 {
         seen.insert(start, 0);
         let seen = (1 as Output..)
             .try_fold((start, dir, seen), |(c, dir, mut seen), i| {
-                let next = c.walk(dir);
+                let next = c.walk(dir).ok_or(Err(AocError))?;
                 if let Vacant(e) = seen.entry(next) {
                     e.insert(i);
                     let &b = map.get(&next).ok_or(AocError).map_err(Err)?;
@@ -283,18 +291,18 @@ L--J.L7...LJS7F-7L7.
 ....L---J.LJ.LJLJ...",
             8,
         );
-        //         test2(
-        //             "F7FSF7F7F7F7F7F---7
-        // L|LJ||||||||||||F--J
-        // FL-7LJLJ||||||LJL-77
-        // F--JF--7||LJLJ7F7FJ-
-        // L---JF-JLJ.||-FJLJJ7
-        // |F|F-JF---7F7-L7L|7|
-        // |FFJF7L7F-JF7|JL---7
-        // 7-L-JL7||F7|L7F-7F7|
-        // L.L7LFJ|||||FJL7||LJ
-        // L7JLJL-JLJLJL--JLJ.L",
-        //             10,
-        //         );
+        test2(
+            "FF7FSF7F7F7F7F7F---7
+L|LJ||||||||||||F--J
+FL-7LJLJ||||||LJL-77
+F--JF--7||LJLJ7F7FJ-
+L---JF-JLJ.||-FJLJJ7
+|F|F-JF---7F7-L7L|7|
+|FFJF7L7F-JF7|JL---7
+7-L-JL7||F7|L7F-7F7|
+L.L7LFJ|||||FJL7||LJ
+L7JLJL-JLJLJL--JLJ.L",
+            10,
+        );
     }
 }
