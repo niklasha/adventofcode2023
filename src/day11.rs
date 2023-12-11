@@ -1,3 +1,4 @@
+use std::io::Read;
 use crate::day::*;
 
 pub struct Day11 {}
@@ -46,38 +47,27 @@ impl Day11 {
     }
 
     fn expand(space: &mut [Coord], n: Output) -> BoxResult<()> {
-        let &x_min = space.iter().map(|Coord(x, _)| x).min().ok_or(AocError)?;
-        let &x_max = space.iter().map(|Coord(x, _)| x).max().ok_or(AocError)?;
-        let &y_min = space.iter().map(|Coord(_, y)| y).min().ok_or(AocError)?;
-        let &y_max = space.iter().map(|Coord(_, y)| y).max().ok_or(AocError)?;
-        let mut x_empty = ((x_min + 1)..x_max)
-            .filter(|&i| !space.iter().any(|Coord(x, _)| *x == i))
-            .sorted()
-            .collect_vec();
-        x_empty.reverse();
-        for i in x_empty {
-            space
-                .iter_mut()
-                .filter(|Coord(x, _)| *x > i)
-                .for_each(|Coord(x, _)| *x += n);
-        }
-        let mut y_empty = ((y_min + 1)..y_max)
-            .filter(|&i| !space.iter().any(|Coord(_, y)| *y == i))
-            .sorted()
-            .collect_vec();
-        y_empty.reverse();
-        for i in y_empty {
-            space
-                .iter_mut()
-                .filter(|Coord(_, y)| *y > i)
-                .for_each(|Coord(_, y)| *y += n);
+        Self::expand_axis(space, n, |&Coord(x, _)| x, |Coord(x, _)| x)?;
+        Self::expand_axis(space, n, |&Coord(_, y)| y, |Coord(_, y)| y)
+    }
+
+    fn expand_axis<F1, F2>(space: &mut [Coord], n: Output, axis: F1, axis_mut: F2) -> BoxResult<()>
+        where
+            F1: Fn(&Coord) -> Output,
+            F2: Fn(&mut Coord) -> &mut Output,
+    {
+        let min = space.iter().map(|c| axis(c)).min().ok_or(AocError)?;
+        let max = space.iter().map(|c| axis(c)).max().ok_or(AocError)?;
+        let empties = ((min + 1)..max)
+            .filter(|&i| !space.iter().any(|c| axis(c) == i))
+            .collect::<Vec<_>>();
+        for i in empties.into_iter().rev() {
+            space.iter_mut().filter(|c| axis(c) > i).for_each(|c| *axis_mut(c) += n);
         }
         Ok(())
     }
 
-    fn part1_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
-        let mut space = Self::parse(input)?;
-        Self::expand(&mut space, 1)?;
+    fn distance(space: &[Coord]) -> BoxResult<Output> {
         Ok(space
             .iter()
             .combinations(2)
@@ -85,14 +75,18 @@ impl Day11 {
             .sum())
     }
 
-    fn part2_impl(&self, input: &mut dyn io::Read, n: Output) -> BoxResult<Output> {
+    fn process(input: &mut dyn Read, n: Output) -> BoxResult<Output> {
         let mut space = Self::parse(input)?;
         Self::expand(&mut space, n)?;
-        Ok(space
-            .iter()
-            .combinations(2)
-            .map(|p| p[0].distance(*p[1]))
-            .sum())
+        Self::distance(&space)
+    }
+
+    fn part1_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
+        Self::process(input, 1)
+    }
+
+    fn part2_impl(&self, input: &mut dyn io::Read, n: Output) -> BoxResult<Output> {
+        Self::process(input, n)
     }
 }
 
