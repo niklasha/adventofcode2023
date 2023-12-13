@@ -1,5 +1,5 @@
-use std::io::Read;
 use crate::day::*;
+use std::io::Read;
 
 pub struct Day11 {}
 
@@ -52,17 +52,20 @@ impl Day11 {
     }
 
     fn expand_axis<F1, F2>(space: &mut [Coord], n: Output, axis: F1, axis_mut: F2) -> BoxResult<()>
-        where
-            F1: Fn(&Coord) -> Output,
-            F2: Fn(&mut Coord) -> &mut Output,
+    where
+        F1: Fn(&Coord) -> Output,
+        F2: Fn(&mut Coord) -> &mut Output,
     {
-        let min = space.iter().map(|c| axis(c)).min().ok_or(AocError)?;
-        let max = space.iter().map(|c| axis(c)).max().ok_or(AocError)?;
+        let min = space.iter().map(&axis).min().ok_or(AocError)?;
+        let max = space.iter().map(&axis).max().ok_or(AocError)?;
         let empties = ((min + 1)..max)
             .filter(|&i| !space.iter().any(|c| axis(c) == i))
             .collect::<Vec<_>>();
         for i in empties.into_iter().rev() {
-            space.iter_mut().filter(|c| axis(c) > i).for_each(|c| *axis_mut(c) += n);
+            space
+                .iter_mut()
+                .filter(|c| axis(c) > i)
+                .for_each(|c| *axis_mut(c) += n);
         }
         Ok(())
     }
