@@ -38,25 +38,26 @@ impl Day13 {
     }
 
     fn find_mirror<F>(pattern: &Vec<Vec<u8>>, get_coord: &F, skip: Option<Output>) -> Output
-        where
-            F: Fn((Output, Output)) -> (Output, Output),
+    where
+        F: Fn((Output, Output)) -> (Output, Output),
     {
         let (x_max, y_max) = get_coord((pattern[0].len(), pattern.len()));
         let rv = (1..y_max)
             .position(|y0| {
-                skip.map_or(true, |skip| y0 != skip) && (0..y0).all(|y1| {
-                    let y2 = y0 + (y0 - y1) - 1;
-                    if y2 < y_max {
-                        (0..x_max)
-                            .map(|x| (get_coord((x, y1)), get_coord((x, y2))))
-                            .all(|((x1, y1), (x2, y2))| {
-                                pattern[y1][x1] == pattern[y2][x2]
-                            })
-                    } else {
-                        true
-                    }
-                })
-            }).map(|y| y + 1).unwrap_or(0);
+                skip.map_or(true, |skip| y0 != skip)
+                    && (0..y0).all(|y1| {
+                        let y2 = y0 + (y0 - y1) - 1;
+                        if y2 < y_max {
+                            (0..x_max)
+                                .map(|x| (get_coord((x, y1)), get_coord((x, y2))))
+                                .all(|((x1, y1), (x2, y2))| pattern[y1][x1] == pattern[y2][x2])
+                        } else {
+                            true
+                        }
+                    })
+            })
+            .map(|y| y + 1)
+            .unwrap_or(0);
         // unsafe {
         //     for y in 0..pattern.len() {
         //         println!("{}", String::from_utf8_unchecked(pattern[y].clone()))
@@ -67,15 +68,22 @@ impl Day13 {
     }
 
     fn find_mirror_2<F>(pattern: &Vec<Vec<u8>>, get_coord: &F, skip: Option<Output>) -> Output
-        where
-            F: Fn((Output, Output)) -> (Output, Output),
+    where
+        F: Fn((Output, Output)) -> (Output, Output),
     {
         let (x_max, y_max) = (pattern[0].len(), pattern.len());
-        (0..y_max).flat_map(move |y| (0..x_max).map(move |x| {
-            let mut pattern = pattern.clone();
-            pattern[y][x] = if pattern[y][x] == b'.' { b'#' } else { b'.' };
-            Self::find_mirror(&pattern, get_coord, skip)
-        }).find(|&n| n > 0)).find(|&n| n > 0).unwrap_or(0)
+        (0..y_max)
+            .flat_map(move |y| {
+                (0..x_max)
+                    .map(move |x| {
+                        let mut pattern = pattern.clone();
+                        pattern[y][x] = if pattern[y][x] == b'.' { b'#' } else { b'.' };
+                        Self::find_mirror(&pattern, get_coord, skip)
+                    })
+                    .find(|&n| n > 0)
+            })
+            .find(|&n| n > 0)
+            .unwrap_or(0)
     }
 
     fn part1_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
