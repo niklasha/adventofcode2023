@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::HashMap;
 use std::iter;
 
 use crate::day::*;
@@ -52,52 +52,45 @@ impl Day12 {
     fn validate(springs: &[u8], ranges: &Vec<Output>) -> Output {
         let mut states = HashMap::new();
         states.insert((false, ranges.to_owned()), 1 as Output);
-        let rv =
-            springs
+        let rv = springs.iter().enumerate().fold(states, |states, (i, &b)| {
+            let min_damage = springs.iter().skip(i).filter(|&b| *b == b'#').count();
+            let max_damage = springs
                 .iter()
-                .enumerate()
-                .fold(states, |states, (i, &b)| {
-                    let min_damage = springs.iter().skip(i).filter(|&b| *b == b'#').count();
-                    let max_damage = springs
-                        .iter()
-                        .skip(i)
-                        .filter(|&b| *b == b'#' || *b == b'?')
-                        .count();
-                    let mut new_states = HashMap::new();
-                    states
-                        .into_iter()
-                        .for_each(|((is_running, ranges), cnt)| {
-                            let damaged_left: Output = ranges.iter().copied().sum();
-                            if damaged_left < min_damage || damaged_left > max_damage {
-//                                println!("PRUNE! {}", damaged_left);
+                .skip(i)
+                .filter(|&b| *b == b'#' || *b == b'?')
+                .count();
+            let mut new_states = HashMap::new();
+            states.into_iter().for_each(|((is_running, ranges), cnt)| {
+                let damaged_left: Output = ranges.iter().copied().sum();
+                if damaged_left < min_damage || damaged_left > max_damage {
+                    //                                println!("PRUNE! {}", damaged_left);
+                } else {
+                    let v = Self::validate_single(
+                        b,
+                        is_running,
+                        if ranges.is_empty() { 0 } else { ranges[0] },
+                    );
+                    v.into_iter().for_each(|(is_running, is_range_complete)| {
+                        let state = (
+                            is_running,
+                            if is_range_complete {
+                                let mut ranges = ranges.clone();
+                                ranges.remove(0);
+                                ranges
+                            } else if is_running {
+                                let mut ranges = ranges.clone();
+                                ranges[0] -= 1;
+                                ranges
                             } else {
-                                let v = Self::validate_single(
-                                    b,
-                                    is_running,
-                                    if ranges.is_empty() { 0 } else { ranges[0] },
-                                );
-                                v.into_iter()
-                                    .for_each(|(is_running, is_range_complete)| {
-                                        let state = (
-                                            is_running,
-                                            if is_range_complete {
-                                                let mut ranges = ranges.clone();
-                                                ranges.remove(0);
-                                                ranges
-                                            } else if is_running {
-                                                let mut ranges = ranges.clone();
-                                                ranges[0] -= 1;
-                                                ranges
-                                            } else {
-                                                ranges.clone()
-                                            },
-                                        );
-                                        *new_states.entry(state).or_insert(0) += cnt;
-                                    });
-                            }
-                        });
-                    new_states
-                });
+                                ranges.clone()
+                            },
+                        );
+                        *new_states.entry(state).or_insert(0) += cnt;
+                    });
+                }
+            });
+            new_states
+        });
         let v = rv
             .iter()
             .filter(|((_, v), _)| v.is_empty() || v.len() == 1 && v[0] == 0)
