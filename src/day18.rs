@@ -1,6 +1,6 @@
 use crate::day::*;
 use regex::Regex;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 pub struct Day18 {}
 
@@ -60,9 +60,9 @@ impl Day18 {
         input: &mut dyn io::Read,
         use_colour: bool,
     ) -> BoxResult<(HashMap<Coord, (Dir, Option<Dir>)>, Coord, Coord)> {
-        let (mut map, coord, from_dir, start) = io::BufReader::new(input).lines().try_fold(
+        let (mut map, coord, from_dir, _) = io::BufReader::new(input).lines().try_fold(
             (HashMap::new(), Coord(0, 0), None, None),
-            |(mut map, coord, from_dir, start), rs| {
+            |(map, coord, from_dir, start), rs| {
                 let s = rs.map_err(|_| AocError)?;
                 let (_, [dir, len, colour]) = PATTERN.captures(&s).ok_or(AocError)?.extract();
                 let dir = if use_colour {
@@ -101,7 +101,7 @@ impl Day18 {
             Err(AocError)?;
         }
         let start_mut = map.get_mut(&Coord(0, 0)).ok_or(AocError)?;
-        (*start_mut).1 = from_dir;
+        start_mut.1 = from_dir;
         if let (Some(min), Some(max)) =
             map.iter()
                 .fold((None, None), |(min, max), (Coord(x, y), _)| {
@@ -199,35 +199,38 @@ impl Day18 {
                                     horizontal_from_north = Some(false);
                                 }
                                 (Dir::North, Dir::West) | (Dir::East, Dir::South)
-                                if horizontal_from_north == Some(true) =>
-                                    {
-                                        is_inside = !is_inside;
-                                        horizontal_from_north = None;
-                                    }
+                                    if horizontal_from_north == Some(true) =>
+                                {
+                                    is_inside = !is_inside;
+                                    horizontal_from_north = None;
+                                }
                                 (Dir::South, Dir::West) | (Dir::East, Dir::North)
-                                if horizontal_from_north == Some(false) =>
-                                    {
-                                        is_inside = !is_inside;
-                                        horizontal_from_north = None;
-                                    }
+                                    if horizontal_from_north == Some(false) =>
+                                {
+                                    is_inside = !is_inside;
+                                    horizontal_from_north = None;
+                                }
                                 _ => {}
                             }
                             sum += 1;
-                        } else {
-                            if is_inside {
-                                sum += 1;
-                            }
+                        } else if is_inside {
+                            sum += 1;
                         }
                         (is_inside, sum, horizontal_from_north)
                     },
                 );
                 sum
-            }).enumerate().map(|(i, s)| { println!("{}: {}", i, s); s })
+            })
+            .enumerate()
+            .map(|(i, s)| {
+                println!("{}: {}", i, s);
+                s
+            })
             .sum())
     }
 
-    fn union(a: &Vec<(isize, isize)>, b: &Vec<(isize, isize)>) -> Vec<(isize, isize)> {
-        let mut u = a.clone();
+    fn union(a: &[(isize, isize)], b: &[(isize, isize)]) -> Vec<(isize, isize)> {
+        let mut u = a.to_owned();
         u.extend_from_slice(b);
         u.sort();
         u.iter()
@@ -265,13 +268,13 @@ impl Day18 {
         }
     }
 
-    fn get_next(current: &Vec<(isize, isize)>, new: &Vec<(isize, isize)>) -> Vec<(isize, isize)> {
+    fn get_next(current: &[(isize, isize)], new: &[(isize, isize)]) -> Vec<(isize, isize)> {
         let mut ei = current.iter();
         let mut ni = new.iter();
         let mut next = vec![];
         let mut extent: Option<(isize, isize)> = None;
         let mut new_extent: Option<(isize, isize)> = None;
-        while true {
+        loop {
             extent = extent.or_else(|| ei.next().copied());
             new_extent = new_extent.or_else(|| ni.next().copied());
             if extent.is_none() {
@@ -321,14 +324,15 @@ impl Day18 {
                 (vec![] as Vec<(isize, isize)>, 0 as Output, None),
                 |(extents, sum, last_y), (&y, new_extents)| {
                     // Add the cornerless rows we have jumped over
-                    let sum = sum + if let Some(last_y) = last_y {
-                        extents
-                            .iter()
-                            .map(|&(x0, x1)| (y - last_y - 1) * (x1 - x0 + 1))
-                            .sum()
-                    } else {
-                        sum
-                    };
+                    let sum = sum
+                        + if let Some(last_y) = last_y {
+                            extents
+                                .iter()
+                                .map(|&(x0, x1)| (y - last_y - 1) * (x1 - x0 + 1))
+                                .sum()
+                        } else {
+                            sum
+                        };
 
                     // Compute the extents to use below this row
                     let next_extents = Self::get_next(&extents, new_extents);
@@ -336,9 +340,9 @@ impl Day18 {
                     // Add the union of the extents from above and the upcoming to the sum
                     let sum = sum
                         + Self::union(&extents, &next_extents)
-                        .iter()
-                        .map(|(x0, x1)| x1 - x0 + 1)
-                        .sum::<Output>();
+                            .iter()
+                            .map(|(x0, x1)| x1 - x0 + 1)
+                            .sum::<Output>();
                     (next_extents, sum, Some(y))
                 },
             )
@@ -346,12 +350,12 @@ impl Day18 {
     }
 
     fn part1_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
-        let (all_extents) = Self::parse(input, false)?;
+        let all_extents = Self::parse(input, false)?;
         Self::compute(all_extents)
     }
 
     fn part2_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
-        let (all_extents) = Self::parse(input, true)?;
+        let all_extents = Self::parse(input, true)?;
         Self::compute(all_extents)
     }
 }
