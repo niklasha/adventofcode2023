@@ -26,8 +26,8 @@ mod day15;
 mod day16;
 mod day17;
 mod day18;
-// mod day19;
-// mod day20;
+mod day19;
+mod day20;
 // mod day21;
 // mod day22;
 // mod day23;
@@ -60,8 +60,8 @@ fn main() {
         Box::new(day16::Day16 {}),
         Box::new(day17::Day17 {}),
         Box::new(day18::Day18 {}),
-        // Box::new(day19::Day19 {}),
-        // Box::new(day20::Day20 {}),
+        Box::new(day19::Day19 {}),
+        Box::new(day20::Day20 {}),
         // Box::new(day21::Day21 {}),
         // Box::new(day22::Day22 {}),
         // Box::new(day23::Day23 {}),
