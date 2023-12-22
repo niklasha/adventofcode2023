@@ -198,15 +198,4 @@ mod tests {
             51,
         );
     }
-
-    #[test]
-    fn t() {
-        use std::cell::RefCell;
-        let f = RefCell::new(false);
-        let _ = (0..).map(|_| {
-            (0..).map(|_| {
-                *f.borrow_mut() = true;
-            })
-        });
-    }
 }
