@@ -1,5 +1,4 @@
 use crate::day::*;
-use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 pub struct Day21 {}
@@ -284,7 +283,7 @@ impl Day21 {
         states.len()
     }
 
-    fn print(tiles: &HashMap<Coord, Tile>, size: Coord, states: &Vec<Coord>, map: (isize, isize)) {
+    fn print(tiles: &HashMap<Coord, Tile>, size: Coord, states: &[Coord], map: (isize, isize)) {
         for y in 0..size.1 {
             let s = (0..size.0).fold(String::new(), |mut s, x| {
                 let coord = Coord(map.0 * size.0 + x, map.1 * size.1 + y);
@@ -346,39 +345,36 @@ impl Day21 {
                 mut e,
             ),
              (Coord(x, y), tile)| {
-                match tile {
-                    Tile::Rock => {
-                        if (x + y) % 2 == 0 {
-                            even_rocks += 1
-                        } else {
-                            odd_rocks += 1
-                        }
-                        if x + y < size.0 * 3 / 2 {
-                            se += 1;
-                            if x + (size.0 - 1 - y) >= size.0 / 2 {
-                                s += 1;
-                            }
-                        }
-                        if x + y >= size.0 / 2 {
-                            nw += 1;
-                            if x + (size.0 - 1 - y) < size.0 * 3 / 2 {
-                                n += 1;
-                            }
-                        }
+                if tile == &Tile::Rock {
+                    if (x + y) % 2 == 0 {
+                        even_rocks += 1
+                    } else {
+                        odd_rocks += 1
+                    }
+                    if x + y < size.0 * 3 / 2 {
+                        se += 1;
                         if x + (size.0 - 1 - y) >= size.0 / 2 {
-                            sw += 1;
-                            if x + y >= size.0 / 2 {
-                                w += 1;
-                            }
-                        }
-                        if x + (size.0 - 1 - y) < size.1 * 3 / 2 {
-                            ne += 1;
-                            if x + y < size.0 * 3 / 2 {
-                                e += 1;
-                            }
+                            s += 1;
                         }
                     }
-                    _ => {}
+                    if x + y >= size.0 / 2 {
+                        nw += 1;
+                        if x + (size.0 - 1 - y) < size.0 * 3 / 2 {
+                            n += 1;
+                        }
+                    }
+                    if x + (size.0 - 1 - y) >= size.0 / 2 {
+                        sw += 1;
+                        if x + y >= size.0 / 2 {
+                            w += 1;
+                        }
+                    }
+                    if x + (size.0 - 1 - y) < size.1 * 3 / 2 {
+                        ne += 1;
+                        if x + y < size.0 * 3 / 2 {
+                            e += 1;
+                        }
+                    }
                 }
                 (even_rocks, odd_rocks, se, nw, sw, ne, s, n, w, e)
             },
@@ -413,7 +409,7 @@ impl Day21 {
                     // No extra stable maps
                     0 | 1 => 0,
                     // NW, NE and SW gets stable
-                    3 | 4 | 5 => 3 * hendecades - 3,
+                    3..=5 => 3 * hendecades - 3,
                     // SE gets stable
                     6 => 4 * hendecades - 4,
                     // N gets stable
@@ -487,36 +483,36 @@ mod tests {
 
     #[test]
     fn part2() {
-//         test2(
-//             "...........
-// .....###.#.
-// .###.##..#.
-// ..#.#...#..
-// ....#.#....
-// .##..S####.
-// .##..#...#.
-// .......##..
-// .##.#.####.
-// .##..##.##.
-// ...........",
-//             6,
-//             16,
-//         );
-//         test2(
-//             "...........
-// .....###.#.
-// .###.##..#.
-// ..#.#...#..
-// ....#.#....
-// .##..S####.
-// .##..#...#.
-// .......##..
-// .##.#.####.
-// .##..##.##.
-// ...........",
-//             10,
-//             50,
-//         );
+        //         test2(
+        //             "...........
+        // .....###.#.
+        // .###.##..#.
+        // ..#.#...#..
+        // ....#.#....
+        // .##..S####.
+        // .##..#...#.
+        // .......##..
+        // .##.#.####.
+        // .##..##.##.
+        // ...........",
+        //             6,
+        //             16,
+        //         );
+        //         test2(
+        //             "...........
+        // .....###.#.
+        // .###.##..#.
+        // ..#.#...#..
+        // ....#.#....
+        // .##..S####.
+        // .##..#...#.
+        // .......##..
+        // .##.#.####.
+        // .##..##.##.
+        // ...........",
+        //             10,
+        //             50,
+        //         );
         test2(
             "...........
 .....###.#.

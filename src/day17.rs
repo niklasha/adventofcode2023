@@ -225,18 +225,18 @@ impl Day17 {
                 .collect::<HashMap<_, _>>();
             if let Some(seen_state) = seen.get_mut(&state.coord) {
                 if state.heat_loss < seen_state.heat_loss {
-                    (*seen_state).heat_loss = state.heat_loss;
+                    seen_state.heat_loss = state.heat_loss;
                     true
                 } else {
                     [Dir::East, Dir::South, Dir::West, Dir::North]
                         .iter()
                         .any(|dir| {
-                            if let Some(straight) = straight.get(&dir) {
+                            if let Some(straight) = straight.get(dir) {
                                 seen_state
                                     .straight
-                                    .get_mut(&dir)
+                                    .get_mut(dir)
                                     .map_or(true, |seen_straight| {
-                                        if { *straight < *seen_straight } {
+                                        if *straight < *seen_straight {
                                             // XXX maybe should peek the far cells if heat_loss is already computed there, and low?
                                             *seen_straight = *straight;
                                             true
