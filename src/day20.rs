@@ -175,7 +175,6 @@ impl Day20 {
     ) -> BoxResult<(HashMap<String, Box<dyn Mod>>, HashSet<String>)> {
         let mut modules = io::BufReader::new(input)
             .lines()
-            .into_iter()
             .map(|rs| Self::parse_module(rs.map_err(|e| AocError.into())))
             .collect::<BoxResult<HashMap<_, _>>>();
         if let Ok(ref mut modules) = modules {
@@ -190,13 +189,13 @@ impl Day20 {
                 })
                 .collect_vec();
             for (source, target) in mappings {
-                if let Some(mut target) = modules.get_mut(&target) {
+                if let Some(target) = modules.get_mut(&target) {
                     target.record_source(&source);
                 }
             }
         }
         modules.map(|m| {
-            let all = m.iter().map(|(k, _)| k.to_string()).collect::<HashSet<_>>();
+            let all = m.keys().map(|k| k.to_string()).collect::<HashSet<_>>();
             (m, all)
         })
     }
@@ -267,7 +266,7 @@ impl Day20 {
         // XXX Assume the output is a conjunction of periodic pulses, implemented as a N-in NAND followed by a 1-in NAND.
         let rx_parents = reversed.get("rx").unwrap();
         let mut rx_grandparents: HashMap<String, Option<Output>> = rx_parents
-            .into_iter()
+            .iter()
             .flat_map(|(parent, _)| reversed.get(parent).unwrap())
             .map(|(s, _)| (s.to_string(), None))
             .collect();
@@ -288,7 +287,7 @@ impl Day20 {
                             .values()
                             .map(|v| v.unwrap_or(0))
                             .fold(1, lcm);
-                        if (lcm != 0) {
+                        if lcm != 0 {
                             return Ok(lcm);
                         }
                     }
