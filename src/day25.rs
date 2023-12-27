@@ -1,10 +1,10 @@
+use graphalgs::connect::find_bridges;
+use petgraph::algo::has_path_connecting;
+use petgraph::graphmap::UnGraphMap;
 use regex::Regex;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use graphalgs::connect::find_bridges;
-use petgraph::algo::has_path_connecting;
-use petgraph::graphmap::UnGraphMap;
 
 use crate::day::*;
 
@@ -58,23 +58,35 @@ impl Day25 {
         for (a, b) in &bonds {
             graph.add_edge(a, b, "");
         }
-        bonds.iter().tuple_combinations().flat_map(|(e1@(a1, b1), e2@(a2, b2))| {
-            let mut graph = graph.clone();
-            graph.remove_edge(a1, b1);
-            graph.remove_edge(a2, b2);
-            let bridges = find_bridges(&graph);
-            if let Some(e3) = bridges.get(0) {
-                Some((e1, e2, *e3))
-            } else {
-                None
-            }
-        }).next().map(|(a, b, c)| {
-            graph.remove_edge(&a.0, &a.1);
-            graph.remove_edge(&b.0, &b.1);
-            graph.remove_edge(&c.0, &c.1);
-            let (left, right) = graph.nodes().fold((0, 0), |(left, right), node| if has_path_connecting(&graph, node, &a.0, None) { (left + 1, right) } else { (left, right + 1) });
-            left * right
-        }).ok_or(AocError.into())
+        bonds
+            .iter()
+            .tuple_combinations()
+            .flat_map(|(e1 @ (a1, b1), e2 @ (a2, b2))| {
+                let mut graph = graph.clone();
+                graph.remove_edge(a1, b1);
+                graph.remove_edge(a2, b2);
+                let bridges = find_bridges(&graph);
+                if let Some(e3) = bridges.get(0) {
+                    Some((e1, e2, *e3))
+                } else {
+                    None
+                }
+            })
+            .next()
+            .map(|(a, b, c)| {
+                graph.remove_edge(&a.0, &a.1);
+                graph.remove_edge(&b.0, &b.1);
+                graph.remove_edge(&c.0, &c.1);
+                let (left, right) = graph.nodes().fold((0, 0), |(left, right), node| {
+                    if has_path_connecting(&graph, node, &a.0, None) {
+                        (left + 1, right)
+                    } else {
+                        (left, right + 1)
+                    }
+                });
+                left * right
+            })
+            .ok_or(AocError.into())
     }
 
     fn part2_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {

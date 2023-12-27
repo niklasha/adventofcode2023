@@ -1,6 +1,6 @@
+use petgraph::graph::UnGraph;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
-use petgraph::graph::UnGraph;
 
 use crate::day::*;
 
