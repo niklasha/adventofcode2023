@@ -1,9 +1,7 @@
-use std::cmp::Ordering;
 use crate::day::*;
+use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::ops::Range;
 
 pub struct Day14 {}
 
@@ -39,19 +37,21 @@ struct Dish(HashMap<Coord, u8>);
 
 impl Hash for Dish {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let mut v = self.0
-            .iter()
-            .filter(|&(_, &b)| b == b'O')
-            .collect_vec();
+        let mut v = self.0.iter().filter(|&(_, &b)| b == b'O').collect_vec();
         v.sort_by(|&(&a, _), &(&b, _)| {
             let x = a.0.cmp(&b.0);
-            if x == Ordering::Equal { a.1.cmp(&b.1) } else { x }
+            if x == Ordering::Equal {
+                a.1.cmp(&b.1)
+            } else {
+                x
+            }
         });
         v.hash(state)
     }
 }
 
 impl Dish {
+    #[allow(unused)]
     fn print(&self, size: Coord) {
         for y in 0..size.1 {
             let s = (0..size.0).fold(String::new(), |mut s, x| {
@@ -101,7 +101,7 @@ impl Day14 {
                 Dir::South => (
                     (0..size.0).rev().collect_vec(),
                     (0..size.0).collect_vec(),
-                    Box::new(|i, o| Coord(i, o)),
+                    Box::new(Coord),
                 ),
                 Dir::West => (
                     (0..size.1).collect_vec(),
@@ -111,40 +111,34 @@ impl Day14 {
                 Dir::North => (
                     (0..size.0).collect_vec(),
                     (0..size.1).collect_vec(),
-                    Box::new(|i, o| Coord(i, o)),
+                    Box::new(Coord),
                 ),
             };
         for o in &outer {
             for i in &inner {
                 let (i, o) = (*i, *o);
-                match dish.0.get(&make_coord(i, o)) {
-                    Some(b'O') => {
-                        let mut v = outer.iter().copied().take_while(|&n| n != o).collect_vec();
-                        v.reverse();
-                        let o1 = v
-                            .into_iter()
-                            .position(|o| {
-                                dish.0.get(&make_coord(i, o)).map_or(false, |&b| b != b'.')
-                            })
-                            .map_or(outer[0], |p| match dir {
-                                Dir::North | Dir::West => o - p,
-                                Dir::South | Dir::East => o + p,
-                            });
-                        if o != o1 {
-                            if let Some(b) = dish.0.remove(&make_coord(i, o)) {
-                                //                                println!("{}: {} -> {}", i, o, o1);
-                                dish.0.insert(make_coord(i, o), b'.');
-                                dish.0.insert(make_coord(i, o1), b);
-                            }
+                if let Some(b'O') = dish.0.get(&make_coord(i, o)) {
+                    let mut v = outer.iter().copied().take_while(|&n| n != o).collect_vec();
+                    v.reverse();
+                    let o1 = v
+                        .into_iter()
+                        .position(|o| dish.0.get(&make_coord(i, o)).map_or(false, |&b| b != b'.'))
+                        .map_or(outer[0], |p| match dir {
+                            Dir::North | Dir::West => o - p,
+                            Dir::South | Dir::East => o + p,
+                        });
+                    if o != o1 {
+                        if let Some(b) = dish.0.remove(&make_coord(i, o)) {
+                            dish.0.insert(make_coord(i, o), b'.');
+                            dish.0.insert(make_coord(i, o1), b);
                         }
                     }
-                    _ => {}
                 }
             }
         }
     }
 
-    fn load(dish: &Dish, size: Coord, dir: Dir) -> Output {
+    fn load(dish: &Dish, size: Coord, _dir: Dir) -> Output {
         // XXX assumes dir is North
         dish.0
             .iter()
@@ -162,24 +156,23 @@ impl Day14 {
     fn part2_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
         let (mut dish, size) = Self::parse(input)?;
         let mut seen = HashMap::new();
-        let mut left = 4000000000u64;
-        let mut i = 0u64;
-        let mut cycle_seen = false;
-        while left > 0 {
+        let mut history = Vec::new();
+        let _ = (0u64..).try_fold(1000000000u64, |left, i| {
+            seen.insert(dish.clone(), i);
+            history.push(dish.clone());
             for dir in [Dir::North, Dir::West, Dir::South, Dir::East] {
-                seen.insert(dish.clone(), i);
                 Self::tilt(&mut dish, size, dir);
-                i += 1;
-                left -= 1;
-                if !cycle_seen {
-                    if let Some(j) = seen.get(&dish) {
-                        let period = i - j;
-                        left %= period;
-                        cycle_seen = true;
-                    }
-                }
             }
-        }
+            if let Some(&j) = seen.get(&dish) {
+                dish = history
+                    .get((j + (left - 1) % (i + 1 - j)) as usize)
+                    .unwrap()
+                    .clone();
+                Err(())
+            } else {
+                Ok(left - 1)
+            }
+        });
         Ok(Self::load(&dish, size, Dir::North))
     }
 }
