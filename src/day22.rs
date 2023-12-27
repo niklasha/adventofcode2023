@@ -246,7 +246,6 @@ impl Day22 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ptr;
 
     fn test1(s: &str, f: Output) {
         assert_eq!(Day22 {}.part1_impl(&mut s.as_bytes()).ok(), Some(f));

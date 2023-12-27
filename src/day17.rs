@@ -1,7 +1,8 @@
 use crate::day::*;
 use regex::Regex;
-use std::collections::hash_set::Iter;
-use std::collections::{HashMap, HashSet};
+use std::collections::btree_set::Iter;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::iter;
 
 pub struct Day17 {}
 
@@ -25,10 +26,10 @@ lazy_static! {
     static ref PATTERN: Regex = Regex::new("^(.*)([-=])(.*)$").unwrap();
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Coord(usize, usize);
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 enum Dir {
     East,
     South,
@@ -81,6 +82,42 @@ impl Coord {
             .collect_vec()
     }
 
+    // // Return a vector of long moves (a straight line for min_len to max_len
+    // // steps and then a turn, or reaching a stop) and a corresponding track..
+    // fn ultra_moves(self, origin: Option<Dir>, size: Coord, min_len: usize, max_len: usize, stop: Coord, seen: &BTreeSet<Coord>) -> Vec<(Coord, Vec<Coord>)> {
+    //     // If we are called when already there, just return no moves.
+    //     if self == stop {
+    //         vec![]
+    //     } else {
+    //         // Otherwise try walking in each direction, ending with a turn.
+    //         [Dir::East, Dir::South, Dir::West, Dir::North].into_iter()
+    //             .filter(|dir| origin.map_or(true, |origin| dir != origin))
+    //             .flat_map(|dir|
+    //                 (min_len..=max_len).map(|len|
+    //                         iter::repeat(dir).take(len).chain(
+    //                         if dir == Dir::North || dir == Dir::South {
+    //                             [Dir::East, Dir::West]
+    //                         } else {
+    //                             [Dir::North, Dir::South]
+    //                         })))
+    //             .try_fold((), |state, mut plan| {
+    //                 plan.try_fold((self), |(coord), dir| {
+    //                     if let Some(next) = self.walk(dir, size) {
+    //                         if seen.contains(&next) {
+    //                             Err(())
+    //                         } else if next == stop {
+    //                             Err(())
+    //                         } else {
+    //                         }
+    //                     } else {
+    //                         Err(())
+    //                     }
+    //                 });
+    //                 Ok(state)
+    //             })
+    //     }
+    // }
+
     // Generate all legal moves when coming from origin, and having a given straight move count.
     fn moves_from(
         self,
@@ -90,18 +127,18 @@ impl Coord {
         min_len: usize,
         max_len: usize,
     ) -> Vec<(Dir, Self, usize)> {
-        self.moves(size)
+        let x = self.moves(size)
             .into_iter()
             .filter(|(dir, _)| {
                 origin.map_or(true, |origin| {
                     *dir != origin.opposite()
                         && if *dir == origin {
-                            straight < max_len
+                            straight < max_len - 1
                         } else {
                             straight + 1 >= min_len
                                 && match *dir {
-                                    Dir::East => size.0 - self.0,
-                                    Dir::South => size.1 - self.1,
+                                    Dir::East => size.0 - 1 - self.0,
+                                    Dir::South => size.1 - 1 - self.1,
                                     Dir::West => self.0,
                                     Dir::North => self.1,
                                 } >= min_len
@@ -119,11 +156,17 @@ impl Coord {
                     },
                 )
             })
-            .collect_vec()
+            .collect_vec();
+        //println!("x = {:?}", x);
+        x
+    }
+
+    fn distance(self, other: Self) -> usize {
+        self.0.max(other.0) - self.0.min(other.0) + self.1.max(other.1) - self.1.min(other.1)
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 struct State {
     coord: Coord,
     dir: Option<Dir>,
@@ -152,7 +195,7 @@ impl State {
 
 #[derive(Debug, Default)]
 struct StateStore {
-    states: HashSet<State>,
+    states: BTreeSet<State>,
 }
 
 impl StateStore {
@@ -161,7 +204,11 @@ impl StateStore {
     }
 
     fn insert(&mut self, state: State) -> bool {
-        self.states.insert(state)
+        let x = self.states.insert(state);
+        if !x {
+            //println!("xxx");
+        }
+        x
     }
 
     fn is_empty(&self) -> bool {
@@ -176,14 +223,14 @@ impl StateStore {
 #[derive(Clone, Debug)]
 struct SeenState {
     heat_loss: Output,
-    straight: HashMap<Dir, usize>,
+    straight: BTreeMap<Dir, usize>,
     track: Vec<Coord>,
 }
 
 impl Day17 {
-    fn parse(input: &mut dyn io::Read) -> BoxResult<(HashMap<Coord, Output>, Coord)> {
+    fn parse(input: &mut dyn io::Read) -> BoxResult<(BTreeMap<Coord, Output>, Coord)> {
         io::BufReader::new(input).lines().enumerate().try_fold(
-            (HashMap::new(), Coord(0, 0)),
+            (BTreeMap::new(), Coord(0, 0)),
             |(mut map, mut size), (y, rs)| {
                 if let Ok(x) = rs.as_ref().map(|s| s.len()) {
                     if x > size.0 {
@@ -201,15 +248,48 @@ impl Day17 {
         )
     }
 
-    fn compute(
-        tiles: &HashMap<Coord, Output>,
+    fn compute_dfs(
+        tiles: &BTreeMap<Coord, Output>,
         size: Coord,
         start: Coord,
         min_len: usize,
         max_len: usize,
     ) -> BoxResult<Output> {
         let finish = Coord(size.0 - 1, size.1 - 1);
-        let mut seen = HashMap::<Coord, SeenState>::new();
+        (0..).try_fold((BTreeSet::from([(0, 0, start, None, 0)]), BTreeMap::new()), |(mut queue, mut seen), _| {
+            println!("{:?}", queue.iter().take(3).collect_vec());
+
+            let is_valid = |coord| {
+
+            };
+
+            if let Some((_, heat_loss_actual, coord, dir, straight)) = queue.pop_first() {
+                if coord == finish && straight + 1 >= min_len {
+                    Err(Ok(heat_loss_actual))
+                } else {
+                    if is_valid(coord) {
+                        for (next_dir, next_coord, next_straight) in coord.moves_from(dir, size, straight, min_len, max_len) {
+                            let heat_loss = heat_loss_actual + tiles.get(&next_coord).unwrap();
+                            queue.insert((heat_loss + next_coord.distance(finish), heat_loss, next_coord, Some(next_dir), next_straight));
+                        }
+                    }
+                    Ok((queue, seen))
+                }
+            } else {
+                Err(Err(AocError.into()))
+            }
+        }).unwrap_err()
+    }
+
+    fn compute(
+        tiles: &BTreeMap<Coord, Output>,
+        size: Coord,
+        start: Coord,
+        min_len: usize,
+        max_len: usize,
+    ) -> BoxResult<Output> {
+        let finish = Coord(size.0 - 1, size.1 - 1);
+        let mut seen = BTreeMap::<Coord, SeenState>::new();
 
         let mut is_valid = |state: State| -> bool {
             if seen.get(&finish).map_or(false, |finish_state| {
@@ -222,15 +302,26 @@ impl Day17 {
                 .moves_from(state.dir, size, state.straight, min_len, max_len)
                 .iter()
                 .map(|&(dir, coord, straight)| (dir, straight))
-                .collect::<HashMap<_, _>>();
+                .collect::<Vec<(_, _)>>();
+            for dup in straight.iter().duplicates_by(|(k, v)| k) {
+                //println!("dups {:?}", dup);
+            }
+            let straight = straight.into_iter().collect::<BTreeMap<_, _>>();
             if let Some(seen_state) = seen.get_mut(&state.coord) {
                 if state.heat_loss < seen_state.heat_loss {
-                    seen_state.heat_loss = state.heat_loss;
-                    true
+                    if state.coord != finish || (state.straight >= min_len - 1 && state.straight < max_len) {
+                        seen_state.heat_loss = state.heat_loss;
+                        if state.coord == finish {
+                            //println!("finish state {:?}", seen_state);
+                        }
+                        true
+                    } else {
+                        false
+                    }
                 } else {
-                    [Dir::East, Dir::South, Dir::West, Dir::North]
+                    let x = [Dir::East, Dir::South, Dir::West, Dir::North]
                         .iter()
-                        .any(|dir| {
+                        .map(|dir| {
                             if let Some(straight) = straight.get(dir) {
                                 seen_state
                                     .straight
@@ -247,21 +338,33 @@ impl Day17 {
                             } else {
                                 false
                             }
-                        })
+                        }).collect_vec();
+                    x.into_iter().any(|x| x)
                 }
             } else {
-                seen.insert(
-                    state.coord,
-                    SeenState {
-                        heat_loss: state.heat_loss,
-                        straight,
-                        track: state.track,
-                    },
-                );
-                true
+                let seen_state = SeenState {
+                    heat_loss: state.heat_loss,
+                    straight,
+                    track: state.track,
+                };
+                if state.coord != finish || (state.straight >= min_len - 1 && state.straight < max_len) {
+                    if state.coord == finish {
+                        //println!("finish state {:?}", seen_state);
+                    }
+                    if let Some(old) = seen.insert(
+                        state.coord,
+                        seen_state,
+                    ) {
+                        //println!("argh {:?}", old);
+                    };
+                    true
+                } else {
+                    false
+                }
             }
         };
 
+        let mut debug = false;
         let mut state_store = StateStore::new();
         state_store.insert(State::from(start, None, 0, 0, vec![]));
         (0..)
@@ -270,6 +373,7 @@ impl Day17 {
                 let state_store =
                     state_store
                         .states()
+//                        .inspect(|x| if [Coord(1,0), Coord(2,0), Coord(3,0), Coord(4,0), Coord(5,0), Coord(6,0), Coord(7,0),Coord (7,1),Coord (7,2), Coord(7,3),Coord (7,4), Coord(8,4), Coord(9,4), Coord(10,4),Coord (11,4)].contains(&x.coord) { println!("state {:?}", x); })
                         .fold(StateStore::new(), |mut state_store, state| {
                             let steps = state.coord.moves_from(
                                 state.dir,
@@ -295,12 +399,15 @@ impl Day17 {
                 if state_store.is_empty() {
                     Err(())
                 } else {
+                    // if debug {
+                    //     println!("{:?}", state_store);
+                    // }
                     Ok(state_store)
                 }
             })
             .unwrap_err();
         let finish_state = seen.get(&finish);
-        println!("{:?}", finish_state.unwrap().track);
+        println!("finish state at end {:?}", finish_state.unwrap());
         finish_state
             .map(|state| state.heat_loss)
             .ok_or(AocError.into())
@@ -308,12 +415,12 @@ impl Day17 {
 
     fn part1_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
         let (tiles, size) = Self::parse(input)?;
-        Self::compute(&tiles, size, Coord(0, 0), 1, 3)
+        Self::compute_dfs(&tiles, size, Coord(0, 0), 1, 3)
     }
 
     fn part2_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
         let (tiles, size) = Self::parse(input)?;
-        Self::compute(&tiles, size, Coord(0, 0), 4, 10)
+        Self::compute_dfs(&tiles, size, Coord(0, 0), 4, 10)
     }
 }
 

@@ -30,9 +30,9 @@ mod day19;
 mod day20;
 mod day21;
 mod day22;
-// mod day23;
-// mod day24;
-// mod day25;
+mod day23;
+mod day24;
+mod day25;
 
 use crate::day::*;
 use std::env;
@@ -64,9 +64,9 @@ fn main() {
         Box::new(day20::Day20 {}),
         Box::new(day21::Day21 {}),
         Box::new(day22::Day22 {}),
-        // Box::new(day23::Day23 {}),
-        // Box::new(day24::Day24 {}),
-        // Box::new(day25::Day25 {}),
+        Box::new(day23::Day23 {}),
+        Box::new(day24::Day24 {}),
+        Box::new(day25::Day25 {}),
     ];
     let inputs = days.iter().map(|day| format!("{}{}", prefix, day.tag()));
     for day in days.iter().zip(inputs).rev() {
