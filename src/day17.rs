@@ -1,10 +1,10 @@
 use crate::day::*;
-use petgraph::algo::{dijkstra, Measure};
+use petgraph::algo::Measure;
 use petgraph::prelude::*;
 use petgraph::visit::{IntoEdges, VisitMap, Visitable};
 use regex::Regex;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, VecDeque};
 use std::hash::Hash;
 
 pub struct Day17 {}
@@ -141,7 +141,7 @@ pub fn custom_dijkstra<G, F, K>(
     start: G::NodeId,
     goal: Option<G::NodeId>,
     mut edge_cost: F,
-) -> HashMap<G::NodeId, K>
+) -> (HashMap<G::NodeId, K>, HashMap<G::NodeId, G::NodeId>)
 where
     G: IntoEdges + Visitable,
     G::NodeId: Eq + Hash,
@@ -150,7 +150,7 @@ where
 {
     let mut visited = graph.visit_map();
     let mut scores = HashMap::new();
-    //let mut predecessor = HashMap::new();
+    let mut predecessor = HashMap::new();
     let mut visit_next = BinaryHeap::new();
     let zero_score = K::default();
     scores.insert(start, zero_score);
@@ -173,19 +173,19 @@ where
                     if next_score < *ent.get() {
                         *ent.into_mut() = next_score;
                         visit_next.push(MinScored(next_score, next));
-                        //predecessor.insert(next.clone(), node.clone());
+                        predecessor.insert(next.clone(), node.clone());
                     }
                 }
                 Vacant(ent) => {
                     ent.insert(next_score);
                     visit_next.push(MinScored(next_score, next));
-                    //predecessor.insert(next.clone(), node.clone());
+                    predecessor.insert(next.clone(), node.clone());
                 }
             }
         }
         visited.visit(node);
     }
-    scores
+    (scores, predecessor)
 }
 
 impl Day17 {
@@ -245,7 +245,11 @@ impl Day17 {
                             }
                             if origin != *dir && origin != opposite_dir && straight + 1 >= min_len {
                                 graph.add_edge(node, (*neighbor, *dir, 0), neighbor_heat_loss);
-                                graph.add_edge(neighbor_node, (*coord, *dir, 0), *heat_loss);
+                                graph.add_edge(
+                                    neighbor_node,
+                                    (*coord, opposite_dir, 0),
+                                    *heat_loss,
+                                );
                             }
                         }
                     }
@@ -266,12 +270,51 @@ impl Day17 {
                     })
             })
             .map(|(start, finish)| {
-                dijkstra(&graph, start, Some(finish), |(_, _, edge)| *edge)
-                    .get(&finish)
-                    .copied()
-                    .unwrap_or(usize::MAX)
+                let (costs, predecessors) =
+                    custom_dijkstra(&graph, start, Some(finish), |(_, _, edge)| *edge);
+                let path = (0..)
+                    .try_fold(VecDeque::from([finish]), |mut path, _| {
+                        if let Some(predecessor) = predecessors.get(&path[0]) {
+                            path.push_front(*predecessor);
+                            if path[0] == start {
+                                Err(path)
+                            } else {
+                                Ok(path)
+                            }
+                        } else {
+                            Err(VecDeque::new())
+                        }
+                    })
+                    .unwrap_err();
+                (costs.get(&finish).copied().unwrap_or(usize::MAX), path)
             })
-            .min()
+            .min_by_key(|(cost, _)| *cost)
+            .map(|(cost, path)| {
+                // for y in 0..size.1 {
+                //     for x in 0..size.0 {
+                //         let tile = tiles.get(&Coord(x, y)).unwrap();
+                //         if let Some((_, dir, _)) = path
+                //             .iter()
+                //             .skip(1)
+                //             .find(|(coord, _, _)| *coord == Coord(x, y))
+                //         {
+                //             print!(
+                //                 "{}",
+                //                 match dir {
+                //                     Dir::East => ">",
+                //                     Dir::South => "v",
+                //                     Dir::West => "<",
+                //                     Dir::North => "^",
+                //                 }
+                //             );
+                //         } else {
+                //             print!("{}", /*(b'0' + *tile as u8) as char*/ ' ');
+                //         }
+                //     }
+                //     println!("");
+                // }
+                cost
+            })
             .ok_or(AocError.into())
     }
 
