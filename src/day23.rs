@@ -73,7 +73,7 @@ impl Coord {
             .into_iter()
             .flat_map(|dir| {
                 self.walk(dir, size)
-                    .filter(|coord| match tiles.get(&coord) {
+                    .filter(|coord| match tiles.get(coord) {
                         Some(Tile::Path) => true,
                         Some(Tile::Slope(slope)) => is_slippery
                             .map_or(*coord == stop, |is_slippery| !is_slippery || dir == *slope),
@@ -123,7 +123,7 @@ fn build_graph(
                                         queue
                                             .iter()
                                             .position(|(c, _, _, _)| *c == coord)
-                                            .expect(&format!("missing {:?} in queue", coord)),
+                                            .unwrap_or_else(|| panic!("missing {:?} in queue", coord)),
                                     );
                                 } else {
                                     queue.push_front((*next, Some(coord), last_node, weight + 1));
@@ -234,180 +234,13 @@ impl Day23 {
         //println!("{:?}", Dot::new(&graph));
         all_simple_paths::<Vec<_>, _>(&graph, start, stop, 0, None)
             .map(|path| {
-                path.into_iter().tuple_windows()
+                path.into_iter()
+                    .tuple_windows()
                     .flat_map(|(a, b)| graph.edge_weight(a, b))
                     .sum()
             })
             .max()
             .ok_or(AocError.into())
-    }
-
-    fn part2_impl_x(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
-        let (tiles, size) = Self::parse(input)?;
-        let walkable = tiles
-            .iter()
-            .filter(|&(_, tile)| *tile != Tile::Forest)
-            .count();
-
-        // Find all paths between slopes in shortest first order
-        // Find all slopes, do a BFS until another slope is found, emit path as an iterator
-        // build a new iterator, producing path sets, sorted in total length order
-        // build new map from standard map reduced by the current path set
-        // Find shortest path in that map
-        //
-
-        // Find all shortcuts, and sum their lengthes up.  Remove that from the tile total.
-        // First all slope combinations
-        let targets = tiles
-            .iter()
-            .filter(|&(coord, tile)| match tile {
-                Tile::Slope(_) => true,
-                Tile::Path if *coord == Coord(size.0 - 2, size.1 - 1) => true,
-                _ => false,
-            })
-            .map(|(coord, _)| *coord)
-            .collect_vec();
-
-        return (1..)
-            .try_fold(
-                (vec![(vec![], Coord(1, 0), vec![HashSet::new()])], vec![]),
-                |(states, mut reaches), _| {
-                    let new_states = states
-                        .into_iter()
-                        .flat_map(
-                            |(filter, start, seens): (Vec<Coord>, _, Vec<HashSet<Coord>>)| {
-                                let new_targets = targets
-                                    .iter()
-                                    .filter(|&target| !filter.contains(target))
-                                    .map(|slope| {
-                                        (
-                                            *slope,
-                                            Self::track(
-                                                &tiles,
-                                                size,
-                                                start,
-                                                *slope,
-                                                None,
-                                                seens[0].clone(),
-                                            ),
-                                        )
-                                    })
-                                    .filter(|(_, seens)| !seens.is_empty())
-                                    .collect_vec();
-                                new_targets.iter().for_each(|slope| {
-                                    println!("{}: {:?} {}", filter.len(), slope.0, slope.1.len())
-                                });
-                                if let Some((_, seens)) = new_targets
-                                    .iter()
-                                    .find(|(coord, seens)| *coord == Coord(size.0 - 2, size.1 - 1))
-                                {
-                                    let len =
-                                        seens.iter().max_by_key(|seen| seen.len()).unwrap().len();
-                                    println!("reached in {}", len);
-                                    reaches.push(len);
-                                }
-                                let mut filter = filter.clone();
-                                filter.push(start);
-                                new_targets.into_iter().map(move |(new_start, new_seens)| {
-                                    (filter.clone(), new_start, new_seens.clone())
-                                })
-                            },
-                        )
-                        .collect_vec();
-                    if new_states.is_empty() {
-                        Err(reaches)
-                    } else {
-                        Ok((new_states, reaches))
-                    }
-                },
-            )
-            .unwrap_err()
-            .into_iter()
-            .max()
-            .ok_or(AocError.into());
-
-        let new_slopes = targets
-            .iter()
-            .map(|slope| {
-                (
-                    *slope,
-                    Self::track(&tiles, size, Coord(1, 0), *slope, None, HashSet::new()),
-                )
-            })
-            .filter(|(_, seens)| !seens.is_empty())
-            .collect_vec();
-        new_slopes
-            .iter()
-            .for_each(|slope| println!("1: {:?} {}", slope.0, slope.1.len()));
-        new_slopes.into_iter().for_each(|(new_slope, seens)| {
-            let new_slopes_2 = targets
-                .iter()
-                .filter(|&slope| *slope != new_slope)
-                .map(|slope| {
-                    (
-                        *slope,
-                        Self::track(&tiles, size, new_slope, *slope, None, seens[0].clone()),
-                    )
-                })
-                .filter(|(_, seens)| !seens.is_empty())
-                .collect_vec();
-            new_slopes_2
-                .iter()
-                .for_each(|slope| println!("2: {:?} {}", slope.0, slope.1.len()));
-            new_slopes_2.into_iter().for_each(|(new_slope_2, seens)| {
-                let new_slopes_3 = targets
-                    .iter()
-                    .filter(|&slope| *slope != new_slope && *slope != new_slope_2)
-                    .map(|slope| {
-                        (
-                            *slope,
-                            Self::track(&tiles, size, new_slope_2, *slope, None, seens[0].clone()),
-                        )
-                    })
-                    .filter(|(_, seens)| !seens.is_empty())
-                    .collect_vec();
-                new_slopes_3
-                    .iter()
-                    .for_each(|slope| println!("3: {:?} {}", slope.0, slope.1.len()));
-                new_slopes_3.into_iter().for_each(|(new_slope_3, seens)| {
-                    targets
-                        .iter()
-                        .filter(|&slope| {
-                            *slope != new_slope && *slope != new_slope_2 && *slope != new_slope_3
-                        })
-                        .map(|slope| {
-                            (
-                                *slope,
-                                Self::track(
-                                    &tiles,
-                                    size,
-                                    new_slope_3,
-                                    *slope,
-                                    None,
-                                    seens[0].clone(),
-                                ),
-                            )
-                        })
-                        .filter(|(_, seens)| !seens.is_empty())
-                        .for_each(|(slope, seens)| {
-                            println!("{:?} {:?}", slope, seens);
-                        });
-                });
-            });
-        });
-        let paths = targets
-            .into_iter()
-            .tuple_combinations::<(_, _)>()
-            .map(|(a, b)| {
-                let seens = Self::track(&tiles, size, a, b, None, HashSet::new());
-                if seens.len() > 0 {
-                    println!("{:?} -> {:?}: {:?}", a, b, seens);
-                }
-                (a, b)
-            })
-            .collect_vec();
-        // for each, find all paths, there can be at most
-        Ok(walkable)
     }
 }
 

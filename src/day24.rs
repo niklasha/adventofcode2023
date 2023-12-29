@@ -42,7 +42,7 @@ impl<T: Clone + Copy + Debug + FromStr> FromStr for Hailstone<T> {
     type Err = AocError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (_, [px, py, pz, vx, vy, vz]) = PATTERN.captures(&s).ok_or(AocError)?.extract(); // XXX
+        let (_, [px, py, pz, vx, vy, vz]) = PATTERN.captures(s).ok_or(AocError)?.extract(); // XXX
         Ok(Hailstone {
             pos: (
                 px.parse().map_err(|_| AocError)?,

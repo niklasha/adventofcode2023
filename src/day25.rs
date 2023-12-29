@@ -45,7 +45,7 @@ impl Day25 {
         io::BufReader::new(input)
             .lines()
             .try_fold(HashSet::new(), |mut bonds, rs| {
-                for bond in Self::parse_wiring(rs.map_err(|e| AocError.into()))? {
+                for bond in Self::parse_wiring(rs.map_err(|_| AocError.into()))? {
                     assert!(bonds.insert(bond));
                 }
                 Ok(bonds)
@@ -66,17 +66,13 @@ impl Day25 {
                 graph.remove_edge(a1, b1);
                 graph.remove_edge(a2, b2);
                 let bridges = find_bridges(&graph);
-                if let Some(e3) = bridges.get(0) {
-                    Some((e1, e2, *e3))
-                } else {
-                    None
-                }
+                bridges.first().map(|e3| (e1, e2, *e3))
             })
             .next()
             .map(|(a, b, c)| {
                 graph.remove_edge(&a.0, &a.1);
                 graph.remove_edge(&b.0, &b.1);
-                graph.remove_edge(&c.0, &c.1);
+                graph.remove_edge(c.0, c.1);
                 let (left, right) = graph.nodes().fold((0, 0), |(left, right), node| {
                     if has_path_connecting(&graph, node, &a.0, None) {
                         (left + 1, right)
@@ -89,7 +85,7 @@ impl Day25 {
             .ok_or(AocError.into())
     }
 
-    fn part2_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
+    fn part2_impl(&self, _input: &mut dyn io::Read) -> BoxResult<Output> {
         Ok(0)
     }
 }
