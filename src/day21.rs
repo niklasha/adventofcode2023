@@ -181,7 +181,7 @@ impl Day21 {
         let mut memo_states = HashMap::new();
 
         let states = (1..=steps).try_fold(vec![start], |states, step| {
-            println!("step {}", step);
+            //println!("step {}", step);
             let states = states
                 .into_iter()
                 .flat_map(|coord| {
@@ -243,7 +243,7 @@ impl Day21 {
                         .insert(zoomed.len(), cnt == stable_size.0)
                         .is_none()
                     {
-                        println!("step {} cnt {}", step, cnt);
+                        //println!("step {} cnt {}", step, cnt);
                         Self::print(tiles, size, &zoomed, (0, 0));
                     }
                 }
@@ -293,7 +293,7 @@ impl Day21 {
                         .or_insert(HashSet::new())
                         .insert((step - entrypoint.1, entrypoint.0))
                     {
-                        println!("new stable map {:?} at {} {}", map, step, lower);
+                        //println!("new stable map {:?} at {} {}", map, step, lower);
                     }
                 });
             }
@@ -354,7 +354,7 @@ impl Day21 {
                 });
                 s
             });
-            println!("{}", s);
+            //println!("{}", s);
         }
     }
 
@@ -479,7 +479,7 @@ impl Day21 {
         let (tiles, size, start) = Self::parse(input)?;
 
         let stable_sizes = Self::get_cycle(&tiles, size, start);
-        println!("cycle: {:?}", stable_sizes);
+        //println!("cycle: {:?}", stable_sizes);
         // let time_to_stable_map = Self::time_to_stable_map(&tiles, size, stable_sizes);
         // println!("time_to_stable_map: {:?}", time_to_stable_map);
         // let time_to_corners = Self::time_to_corners(&tiles, size, start);
