@@ -1,5 +1,8 @@
+use petgraph::algo::all_simple_paths;
+use petgraph::dot::Dot;
 use petgraph::graph::UnGraph;
-use std::collections::{HashMap, HashSet};
+use petgraph::prelude::UnGraphMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 
 use crate::day::*;
@@ -89,6 +92,54 @@ enum Tile {
     Slope(Dir),
 }
 
+fn build_graph(
+    tiles: &HashMap<Coord, Tile>,
+    size: Coord,
+    start: Coord,
+    stop: Coord,
+) -> UnGraphMap<Coord, Output> {
+    (0..)
+        .try_fold(
+            (UnGraphMap::new(), VecDeque::from([(start, None, start, 0)])),
+            |(mut graph, mut queue), _| {
+                if let Some((coord, previous, mut last_node, mut weight)) = queue.pop_front() {
+                    if coord == stop {
+                        graph.add_edge(last_node, stop, weight);
+                        Ok((graph, queue))
+                    } else {
+                        let mut neighbors = coord.moves(tiles, size, Some(false), stop);
+                        neighbors.retain(|(_, coord)| Some(*coord) != previous);
+                        if neighbors.len() > 1 {
+                            graph.add_edge(last_node, coord, weight);
+                            last_node = coord;
+                            weight = 0;
+                        }
+                        Ok(neighbors.iter().fold(
+                            (graph, queue),
+                            |(mut graph, mut queue), (_, next)| {
+                                if graph.contains_node(*next) {
+                                    graph.add_edge(last_node, *next, weight + 1);
+                                    queue.remove(
+                                        queue
+                                            .iter()
+                                            .position(|(c, _, _, _)| *c == coord)
+                                            .expect(&format!("missing {:?} in queue", coord)),
+                                    );
+                                } else {
+                                    queue.push_front((*next, Some(coord), last_node, weight + 1));
+                                }
+                                (graph, queue)
+                            },
+                        ))
+                    }
+                } else {
+                    Err(graph)
+                }
+            },
+        )
+        .unwrap_err()
+}
+
 impl Day23 {
     fn parse(input: &mut dyn io::Read) -> BoxResult<(HashMap<Coord, Tile>, Coord)> {
         io::BufReader::new(input).lines().enumerate().try_fold(
@@ -175,25 +226,23 @@ impl Day23 {
         .ok_or(AocError.into())
     }
 
-    // fn build_graph(tiles: &HashMap<Coord, Tile>, size: Coord) -> UnGraph<Coord, usize> {
-    //     let (graph) = (0..).try_fold(
-    //         (UnGraph::new_undirected(), Coord(1, 0), Coord(1, 0), 0),
-    //         |(mut graph, coord, edge_start, edge_step), step| {
-    //
-    //         let moves = coord.moves(tiles, size, Some(false), Coord(size.0 - 2, size.1 - 1));
-    //         if moves.len() > 1 {
-    //             graph.add_edge(edge_start, coord, step - edge_step);
-    //             Ok(graph)
-    //         } else if let Some(next) = moves.get(0) {
-    //             Ok((graph, next, edge_start, step + 1))
-    //         } else {
-    //             Ok(())
-    //         }
-    //     }).unwrap_err();
-    //     graph
-    // }
-
     fn part2_impl(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
+        let (tiles, size) = Self::parse(input)?;
+        let start = Coord(1, 0);
+        let stop = Coord(size.1 - 2, size.1 - 1);
+        let graph = build_graph(&tiles, size, start, stop);
+        //println!("{:?}", Dot::new(&graph));
+        all_simple_paths::<Vec<_>, _>(&graph, start, stop, 0, None)
+            .map(|path| {
+                path.into_iter().tuple_windows()
+                    .flat_map(|(a, b)| graph.edge_weight(a, b))
+                    .sum()
+            })
+            .max()
+            .ok_or(AocError.into())
+    }
+
+    fn part2_impl_x(&self, input: &mut dyn io::Read) -> BoxResult<Output> {
         let (tiles, size) = Self::parse(input)?;
         let walkable = tiles
             .iter()
