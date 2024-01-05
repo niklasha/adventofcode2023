@@ -123,7 +123,9 @@ fn build_graph(
                                         queue
                                             .iter()
                                             .position(|(c, _, _, _)| *c == coord)
-                                            .unwrap_or_else(|| panic!("missing {:?} in queue", coord)),
+                                            .unwrap_or_else(|| {
+                                                panic!("missing {:?} in queue", coord)
+                                            }),
                                     );
                                 } else {
                                     queue.push_front((*next, Some(coord), last_node, weight + 1));
